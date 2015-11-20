@@ -32,20 +32,18 @@
 (defn flat-map-directory [list]
   (flatten (map get-directory list)))
 
-;; get-link-repeat url-list 2 -- url-list is people-list url
+;; Build a directory of links, has the nasty side-effect of writing
+;; them to disk
 (defn get-link-repeat [url-list n]
-  (if (zero? n) url-list
+  (if (zero? n) (do
+                  (with-open [w (clojure.java.io/writer "link-list")]
+                    (doseq [line url-list]
+                      (.write w line)
+                      (.newLine w)))
+                  url-list)
       (get-link-repeat
        (map get-link (flat-map-directory url-list))
        (dec n))))
-
-;;
-(   ;;map get-link
- ;;
- (  ;;flat-map-directory
-  ( ;;map get-link (flat-map-directory (people-list url))
-   )))
-
 
 ;; - Scraping the actual page
 (defn get-user-page [url]
@@ -67,16 +65,27 @@
         industry (get-pg-first-content pg [:div :div :div :dl :dd])
         detail (create-detail-map pg [:div :div :div :tr :th]
                                   [:div :div :div :tr :td :ol :li :a])]
-    (conj (hashmap :user user :title title :industry industry)
-          detail)))
+    (conj (hash-map :user user :title title :industry industry)
+          detail)
+    ;; Creating side-effects for scraping
+    (spit "key-map" (string/join "," [user title industry]) :append true)))
 
 ;; Write data to csv
-
+;; TODO: this function doesn't work
 (defn write-csv [path row-data]
-  (let [columns [:user :title :industry :Current :Previous :Education]
+  (let [columns [:user :title :industry :Current :Previous]
         headers (map name columns)
         rows (mapv #(mapv % columns) row-data)]
     (with-open [file (io/writer path)]
       (csv/write-csv file (cons headers rows)))))
 
+;; Run the crawl
+(defn run-crawl []
+  (map get-user-details
+       (map get-user-page
+            (get-link-repeat
+             (people-list base-url) 2))))
 
+;; Save the crawl
+(defn save-crawl [path]
+  (write-csv path run-crawl))
