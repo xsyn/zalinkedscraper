@@ -2,7 +2,11 @@
   (:require [net.cgrand.enlive-html :as html]
             [clojure-csv.core :as csv]
             [clojure.string :as string]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [clj-http.client :as client]
+            [cheshire.core :refer :all]))
+
+;; TODO: Moving over to clj-http and chesire
 
 ;; Setup the base url with za. prefix
 (def base-url "https://za.linkedin.com/")
@@ -17,7 +21,9 @@
   (map #(string/join [url "directory/people-" %]) (char-range \a \z)))
 
 (defn fetch-url [url]
-  (html/html-resource (java.net.URL. url)))
+  (html/html-resource (java.io.StringReader.
+                       (:body (parse-string
+                               (client/get url {:insecure true}))))))
 
 ;; - Doing a crawl through the directories
 
@@ -32,16 +38,25 @@
 (defn flat-map-directory [list]
   (flatten (map get-directory list)))
 
+(defn add-za [url]
+  (string/join "" ["https://za.linkedin.com/" url]))
+
+(defn validate-url [url]
+  (if (re-find #"https://" url) url
+      (add-za url)))
+
 ;; Build a directory of links, has the nasty side-effect of writing
 ;; them to disk
+
+;;   https://www.linkedin.com/in/a-pillay-3188496
 (defn get-link-repeat [url-list n]
   "Set at Level 3 to get full list of South African URLS"
   (if (zero? n) (do
                   (with-open [w (clojure.java.io/writer "link-list")]
                     (doseq [line url-list]
                       (.write w line)
-                      (.newLine w))))
-      url-list
+                      (.newLine w)))
+                  url-list)
       (get-link-repeat
        (map get-link (flat-map-directory url-list))
        (dec n))))
@@ -58,7 +73,6 @@
    (map keyword (flatten (map :content (html/select pg kpath))))
    (flatten (map :content (html/select pg vpath)))))
 
-
 ;; This function is pretty ugly man
 (defn get-user-details [pg]
   (let [user (get-pg-first-content pg [:div :div :div :h1])
@@ -71,51 +85,9 @@
     ;; Creating side-effects for scraping
     (spit "key-map" (string/join "," [user title industry]) :append true)))
 
-;; TODO: The below doesn't work due to the fact that the url's that
-;; we're getting are redirects. Need to feed the redirected url into
-;; get-user-page
-
-;; e.g
-;; https://za.linkedin.com/pub/a-v-connversions-chantal-edwards/39/4b4/568
-;; redirects to:
-;; https://www.linkedin.com/in/a-v-connversions-chantal-edwards-5684b439
-;;
-;; Maybe we're lucky, it looks like that url just parses
-
-;; We need two function, 1 that changes za.linkedin to www.linkedin
-;; form, one that redirect /pub/dir/url links to another path
-;; and a main one goes through the list and decides which to use
-
-(defn za-url-to-standard [za-url]
-  "This very ugly function is to clean up the links received from the za directories, and change them to public links. TODO - clean this up, it's ugly"
-  (let [urlv (string/split (string/replace za-url #"za.linkedin.com/pub/" "www.linkedin.com/in/") #"/")
-        start-url (string/join "/" [(nth urlv 0)
-                                    (nth urlv 1)
-                                    (nth urlv 2)
-                                    (nth urlv 3)
-                                    (nth urlv 4)])
-        end-url (string/join "" [(nth urlv 7)
-                                 (nth urlv 6)
-                                 (nth urlv 5)])]
-    (string/join "-" [start-url end-url])))
-
-(defn add-za [url]
-  (string/join "" ["https://za.linkedin.com/" url]))
-
-(defn fix-pub-dir [url]
-  (if (re-find #"/pub/dir/" url) (add-za (string/replace url #"/pub/dir/" "/in/"))
-      (add-za url)))
-
-(defn validate-url [url]
-  (if (re-find #"https://" url) (za-url-to-standard url)
-      (fix-pub-dir url)))
-
 ;; Run the crawl
 (defn run-crawl []
-  (map get-user-details
-       (map get-user-page
-            (get-link-repeat
-             (people-list base-url) 3))))
+  (map get-user-details (flatten (map get-user-page (get-link-repeat (people-list base-url) 3)))))
 
 ;; Save the crawl
 (defn save-crawl [path]
