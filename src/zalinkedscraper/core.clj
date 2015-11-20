@@ -1,7 +1,8 @@
 (ns zalinkedscraper.core
   (:require [net.cgrand.enlive-html :as html]
             [clojure-csv.core :as csv]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [clojure.java.io :as io]))
 
 ;; Setup the base url with za. prefix
 (def base-url "https://za.linkedin.com/")
@@ -18,15 +19,7 @@
 (defn fetch-url [url]
   (html/html-resource (java.net.URL. url)))
 
-;; The below two functions create a map of Letter and directory-link,
-;; however because it's a pattern
-(defn get-first-directory [url]
-  (html/select (fetch-url url) [:div.directory :ol :li :a]))
-
-(defn create-first-directory-map [url]
-  (let [temp (get-first-directory url)]
-    (zipmap (map html/text temp )
-            (map #(vals (:attrs %)) temp))))
+;; - Doing a crawl through the directories
 
 (defn get-directory [url]
   (html/select
@@ -39,16 +32,12 @@
 (defn flat-map-directory [list]
   (flatten (map get-directory list)))
 
-(defn get-link-repeat [x]
-  (repeatedly 2 (map get-link (flat-map-directory (people-list url)))))
-;; people-list will bring back a list of urls, I want to map each url
-;; with a full function thread
-
-;; Go into each thread and pick up the new list of urls
-
-
-;; This is both tiers tier, this should create a list of all the links
-;; for the next tier to scrape.
+;; get-link-repeat url-list 2 -- url-list is people-list url
+(defn get-link-repeat [url-list n]
+  (if (zero? n) url-list
+      (get-link-repeat
+       (map get-link (flat-map-directory url-list))
+       (dec n))))
 
 ;;
 (   ;;map get-link
@@ -62,10 +51,32 @@
 (defn get-user-page [url]
   (html/select (fetch-url url) [:div.profile-card.vcard]))
 
-(defn get-pg-content [pg path]
-  (:content (first (html/select pg path))))
+(defn get-pg-first-content [pg path]
+  (first (:content (first (html/select pg path)))))
 
+(defn create-detail-map [pg kpath vpath]
+  (zipmap
+   (map keyword (flatten (map :content (html/select pg kpath))))
+   (flatten (map :content (html/select pg vpath)))))
+
+
+;; This function is pretty ugly man
 (defn get-user-details [pg]
-  (let [user (get-pg-content pg [:div :div :div :h1])
-        title (get-pg-content pg [:div :div :div :p])
-        industry (get-pg-content pg [:div :div :div :dl :dd])]))
+  (let [user (get-pg-first-content pg [:div :div :div :h1])
+        title (get-pg-first-content pg [:div :div :div :p])
+        industry (get-pg-first-content pg [:div :div :div :dl :dd])
+        detail (create-detail-map pg [:div :div :div :tr :th]
+                                  [:div :div :div :tr :td :ol :li :a])]
+    (conj (hashmap :user user :title title :industry industry)
+          detail)))
+
+;; Write data to csv
+
+(defn write-csv [path row-data]
+  (let [columns [:user :title :industry :Current :Previous :Education]
+        headers (map name columns)
+        rows (mapv #(mapv % columns) row-data)]
+    (with-open [file (io/writer path)]
+      (csv/write-csv file (cons headers rows)))))
+
+
