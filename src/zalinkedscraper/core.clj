@@ -121,9 +121,9 @@
 
 ;; - Scraping the actual page
 (defn get-user-page [url]
-  (let [checked-url (fetch-url)]
+  (let [checked-url (fetch-url url)]
     (if (nil? checked-url)
-      nil
+      (do (println (warn (string/join ["Empty URL string: " url]))) nil)
       (html/select checked-url [:div.profile-card.vcard]))))
 
 (defn get-pg-first-content [pg path]
