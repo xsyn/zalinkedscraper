@@ -68,7 +68,7 @@
   (get-in li [:attrs :href]))
 
 (defn flat-map-directory [list]
-  (remove nil (flatten (map get-directory list))))
+  (remove nil? (flatten (map get-directory list))))
 
 
 ;; Some validation functions for directory urls that go through to
