@@ -30,7 +30,9 @@
 
 (defn get-url [url]
   (try+
-   (client/get url {:insecure true})
+   (client/get url {:insecure true
+                    :proxy-host "127.0.0.1"
+                    :proxy-port 9050})
    (catch [:status 403] {:keys [request-time headers body]}
      (do
        (println (warn "403" request-time headers))
@@ -48,9 +50,7 @@
     (if (nil? check-url)
       nil
       (html/html-resource (java.io.StringReader.
-                           (:body (client/get url {:insecure true
-                                                   :proxy-host "127.0.0.1"
-                                                   :proxy-port 9050})))))))
+                           (:body check-url))))))
 
 ;; - Doing a crawl through the directories
 
