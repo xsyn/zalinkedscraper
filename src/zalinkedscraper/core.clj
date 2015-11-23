@@ -4,9 +4,16 @@
             [clojure.string :as string]
             [clojure.java.io :as io]
             [clj-http.client :as client]
-            [cheshire.core :refer :all]))
+            [cheshire.core :refer :all]
+            [taoensso.timbre :as timbre
+             :refer (log  trace  debug  info  warn  error  fatal  report
+                          logf tracef debugf infof warnf errorf fatalf reportf
+                          spy get-env log-env)]
+            [taoensso.timbre.profiling :as profiling
+             :refer (pspy pspy* profile defnp p p*)]))
 
-;; TODO: Moving over to clj-http and chesire
+;; TODO: Setup exception handling for 404's
+
 
 ;; Setup the base url with za. prefix
 (def base-url "https://za.linkedin.com/")
@@ -77,7 +84,7 @@
   (if (zero? n) (do
                   (let [validated-list (flatten (map validate-url url-list))]
                     (with-open [w (clojure.java.io/writer "link-list")]
-                      (doseq [line validated-list]
+                      (doseq [line url-list]
                         (.write w line)
                         (.newLine w))))
                   url-list)
