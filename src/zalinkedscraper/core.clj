@@ -4,6 +4,7 @@
             [clojure.string :as string]
             [clojure.java.io :as io]
             [clj-http.client :as client]
+            [clj-http.conn-mgr :as conn-mgr]
             [cheshire.core :refer :all]
             [taoensso.timbre :as timbre
              :refer (log  trace  debug  info  warn  error  fatal  report
@@ -31,8 +32,9 @@
 (defn get-url [url]
   (try+
    (client/get url {:insecure true
-                    :proxy-host "127.0.0.1"
-                    :proxy-port 9050})
+                    :connection-manager
+                    (conn-mgr/make-socks-proxied-conn-manager "localhost" 9050)
+                    })
    (catch [:status 403] {:keys [request-time headers body]}
      (do
        (println (warn "403" request-time headers))
