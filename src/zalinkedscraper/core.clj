@@ -103,20 +103,24 @@
 
 (defn get-link-repeat [url-list n]
   "Set at Level 3 to get full list of South African URLS"
-  (if (zero? n) (do
-                  (let [validated-list (flatten (map validate-url url-list))]
-                    (with-open [w (clojure.java.io/writer "link-list")]
-                      (doseq [line validated-list]
-                        (.write w line)
-                        (.newLine w))))
-                  url-list)
-      (get-link-repeat
-       (map get-link (flat-map-directory url-list))
-       (dec n))))
+  (if (zero? n)
+    (let [validated-list (flatten (map validate-url url-list))]
+      (println (info "Opening link-list for writing"))
+      (with-open [w (clojure.java.io/writer "link-list")]
+        (doseq [line validated-list]
+          (.write w line)
+          (.newLine w)))
+      validated-list)
+    (get-link-repeat
+     (map get-link (flat-map-directory url-list))
+     (dec n))))
 
 ;; - Scraping the actual page
 (defn get-user-page [url]
-  (html/select (fetch-url url) [:div.profile-card.vcard]))
+  (let [checked-url (fetch-url)]
+    (if (nil? checked-url)
+      nil
+      (html/select checked-url [:div.profile-card.vcard]))))
 
 (defn get-pg-first-content [pg path]
   (first (:content (first (html/select pg path)))))
@@ -136,12 +140,13 @@
     (conj (hash-map :user user :title title :industry industry)
           detail)
     ;; Creating side-effects for scraping
-    (spit "key-map" (string/join "," [user title industry]) :append true)))
+    (println (info "Opening key-map for writing"))
+    (spit "key-map" (info (string/join "," [user title industry])) :append true)))
 
 ;; Run the crawl
 (defn run-crawl []
   (map get-user-details (flatten (map get-user-page (get-link-repeat (people-list base-url) 3)))))
 
-;; Save the crawl
-(defn save-crawl [path]
-  (write-csv path run-crawl))
+;; Main funciton
+(defn -main []
+  (run-crawl))

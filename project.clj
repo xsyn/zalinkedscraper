@@ -9,4 +9,5 @@
                  [clj-http "2.0.0"]
                  [cheshire "5.5.0"]
                  [slingshot "0.12.2"]
-                 [com.taoensso/timbre "4.1.4"]])
+                 [com.taoensso/timbre "4.1.4"]]
+  :main zalinkedscraper.core)
