@@ -22,8 +22,7 @@
 
 (defn fetch-url [url]
   (html/html-resource (java.io.StringReader.
-                       (:body (parse-string
-                               (client/get url {:insecure true}))))))
+                       (:body (client/get url {:insecure true})))))
 
 ;; - Doing a crawl through the directories
 
