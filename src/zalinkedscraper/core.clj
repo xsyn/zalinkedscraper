@@ -35,14 +35,39 @@
   (get-in li [:attrs :href]))
 
 (defn flat-map-directory [list]
-  (flatten (pmap get-directory list)))
+  (flatten (map get-directory list)))
+
+
+;; Some validation functions for directory urls that go through to
+;; other links, and links that don't have proper pathing
 
 (defn add-za [url]
   (string/join "" ["https://za.linkedin.com/" url]))
 
-(defn validate-url [url]
+(defn localize-url [url]
   (if (re-find #"https://" url) url
       (add-za url)))
+
+(defn pub-url? [url]
+  (if (re-find #"/pub/dir/" url) true
+      false))
+
+(defn dd-is-za? [htm]
+  (if (=  (first (:content (first (html/select htm [:dd])))) "South Africa")
+    true
+    false))
+
+(defn extract-dd-href [htm]
+  (get-in (first (html/select htm [:a])) [:attrs :href]))
+
+(defn get-directory-urls [url]
+  (let [dir-links (html/select (fetch-url url) [:div.professionals.section :ul.content :li])]
+    (map extract-dd-href (filter dd-is-za?  dir-links))))
+
+(defn validate-url [url]
+  (let [lurl (localize-url url)]
+    (if (pub-url? lurl) (get-directory-urls lurl)
+        lurl)))
 
 ;; Build a directory of links, has the nasty side-effect of writing
 ;; them to disk
@@ -50,10 +75,11 @@
 (defn get-link-repeat [url-list n]
   "Set at Level 3 to get full list of South African URLS"
   (if (zero? n) (do
-                  (with-open [w (clojure.java.io/writer "link-list")]
-                    (doseq [line url-list]
-                      (.write w line)
-                      (.newLine w)))
+                  (let [validated-list (flatten (map validate-url url-list))]
+                    (with-open [w (clojure.java.io/writer "link-list")]
+                      (doseq [line validated-list]
+                        (.write w line)
+                        (.newLine w))))
                   url-list)
       (get-link-repeat
        (map get-link (flat-map-directory url-list))

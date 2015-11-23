@@ -7,4 +7,6 @@
                  [enlive "1.1.6"]
                  [clojure-csv/clojure-csv "2.0.1"]
                  [clj-http "2.0.0"]
-                 [cheshire "5.5.0"]])
+                 [cheshire "5.5.0"]
+                 [slingshot "0.12.2"]
+                 [com.taoensso/timbre "4.1.4"]])
