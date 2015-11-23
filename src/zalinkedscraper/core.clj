@@ -48,7 +48,9 @@
     (if (nil? check-url)
       nil
       (html/html-resource (java.io.StringReader.
-                           (:body (client/get url {:insecure true})))))))
+                           (:body (client/get url {:insecure true
+                                                   :proxy-host "127.0.0.1"
+                                                   :proxy-port 9050})))))))
 
 ;; - Doing a crawl through the directories
 
