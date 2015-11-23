@@ -36,7 +36,7 @@
   (get-in li [:attrs :href]))
 
 (defn flat-map-directory [list]
-  (flatten (map get-directory list)))
+  (flatten (pmap get-directory list)))
 
 (defn add-za [url]
   (string/join "" ["https://za.linkedin.com/" url]))
@@ -48,7 +48,6 @@
 ;; Build a directory of links, has the nasty side-effect of writing
 ;; them to disk
 
-;;   https://www.linkedin.com/in/a-pillay-3188496
 (defn get-link-repeat [url-list n]
   "Set at Level 3 to get full list of South African URLS"
   (if (zero? n) (do
