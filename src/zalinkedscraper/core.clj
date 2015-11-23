@@ -28,22 +28,43 @@
 (defn people-list [url]
   (map #(string/join [url "directory/people-" %]) (char-range \a \z)))
 
+(defn get-url [url]
+  (try+
+   (client/get url {:insecure true})
+   (catch [:status 403] {:keys [request-time headers body]}
+     (do
+       (println (warn "403" request-time headers))
+       nil))
+   (catch [:status 404] {:keys [request-time headers body]}
+     (do
+       (println (warn "NOT Found 404" request-time headers body))
+       nil))
+   (catch Object _
+     (error (:throwable &throw-context) "unexpected error")
+     (throw+))))
+
 (defn fetch-url [url]
-  (html/html-resource (java.io.StringReader.
-                       (:body (client/get url {:insecure true})))))
+  (let [check-url (get-url url)]
+    (if (nil? check-url)
+      nil
+      (html/html-resource (java.io.StringReader.
+                           (:body (client/get url {:insecure true})))))))
 
 ;; - Doing a crawl through the directories
 
 (defn get-directory [url]
-  (html/select
-   (fetch-url url) [:div.section.last :div.columns :ul :li :a]))
+  (let [check-url (fetch-url url)]
+    (if (nil? check-url)
+      nil
+      (html/select
+       (fetch-url url) [:div.section.last :div.columns :ul :li :a]))))
 
 (defn get-link [li]
   "Get the link from the row"
   (get-in li [:attrs :href]))
 
 (defn flat-map-directory [list]
-  (flatten (map get-directory list)))
+  (remove nil (flatten (map get-directory list))))
 
 
 ;; Some validation functions for directory urls that go through to
@@ -85,7 +106,7 @@
   (if (zero? n) (do
                   (let [validated-list (flatten (map validate-url url-list))]
                     (with-open [w (clojure.java.io/writer "link-list")]
-                      (doseq [line url-list]
+                      (doseq [line validated-list]
                         (.write w line)
                         (.newLine w))))
                   url-list)
