@@ -10,4 +10,5 @@
                  [cheshire "5.5.0"]
                  [slingshot "0.12.2"]
                  [com.taoensso/timbre "4.1.4"]]
+  ;; Comments for test
   :main zalinkedscraper.core)
